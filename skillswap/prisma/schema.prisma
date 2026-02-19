@@ -1,0 +1,138 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  password      String?
+  bio           String?
+  avatar        String?
+  location      String?
+  timeCredits   Int       @default(5)
+  totalEarned   Int       @default(0)
+  totalSpent    Int       @default(0)
+  streak        Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  skillsTeaching  Skill[]       @relation("TeacherSkills")
+  sessionsAsTeacher Session[]   @relation("TeacherSessions")
+  sessionsAsLearner Session[]   @relation("LearnerSessions")
+  reviewsGiven    Review[]      @relation("ReviewsGiven")
+  reviewsReceived Review[]      @relation("ReviewsReceived")
+  transactionsFrom Transaction[] @relation("TransactionsFrom")
+  transactionsTo   Transaction[] @relation("TransactionsTo")
+  badges          UserBadge[]
+  notifications   Notification[]
+}
+
+model Skill {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  category    String
+  level       String   @default("beginner")
+  tags        String?  // JSON stringified array
+  rating      Float    @default(0)
+  reviewCount Int      @default(0)
+  sessionCount Int     @default(0)
+  isActive    Boolean  @default(true)
+  imageUrl    String?
+  teacherId   String
+  teacher     User     @relation("TeacherSkills", fields: [teacherId], references: [id])
+  sessions    Session[]
+  reviews     Review[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Session {
+  id          String   @id @default(cuid())
+  skillId     String
+  skill       Skill    @relation(fields: [skillId], references: [id])
+  teacherId   String
+  teacher     User     @relation("TeacherSessions", fields: [teacherId], references: [id])
+  learnerId   String
+  learner     User     @relation("LearnerSessions", fields: [learnerId], references: [id])
+  scheduledAt DateTime
+  duration    Int      @default(60) // minutes
+  status      String   @default("pending") // pending, confirmed, completed, cancelled
+  meetingUrl  String?
+  notes       String?
+  credits     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions Transaction[]
+  reviews      Review[]
+}
+
+model Transaction {
+  id              String   @id @default(cuid())
+  fromUserId      String
+  fromUser        User     @relation("TransactionsFrom", fields: [fromUserId], references: [id])
+  toUserId        String
+  toUser          User     @relation("TransactionsTo", fields: [toUserId], references: [id])
+  sessionId       String?
+  session         Session? @relation(fields: [sessionId], references: [id])
+  credits         Int
+  transactionType String   // booking, earning, starter_bonus, refund
+  description     String?
+  createdAt       DateTime @default(now())
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  rating     Int      // 1-5
+  comment    String?
+  skillId    String
+  skill      Skill    @relation(fields: [skillId], references: [id])
+  sessionId  String
+  session    Session  @relation(fields: [sessionId], references: [id])
+  reviewerId String
+  reviewer   User     @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  revieweeId String
+  reviewee   User     @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model Badge {
+  id          String      @id @default(cuid())
+  name        String
+  description String
+  icon        String
+  condition   String      // JSON: {type, threshold}
+  users       UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  badgeId   String
+  badge     Badge    @relation(fields: [badgeId], references: [id])
+  earnedAt  DateTime @default(now())
+
+  @@unique([userId, badgeId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // booking, review, credit, system
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
